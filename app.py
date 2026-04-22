@@ -61,6 +61,7 @@ st.sidebar.caption("Powered by Random Forest & Streamlit")
 if page == "🔮 Live ML Predictor":
     st.title("🔮 Predictive Alpha Engine")
     st.markdown("Adjust the behavioral and sentiment parameters below to predict if the trader will be profitable tomorrow.")
+    st.info("🧠 **Quant Note:** Due to the historical baseline profit-bias in the market, this engine uses a strict **75% confidence threshold** before forecasting a profitable day. Anything below 75% triggers a risk/loss warning.")
     
     if model is None:
         st.error("⚠️ Model file 'hyperliquid_rf_model.pkl' not found! Please make sure it is in the same directory as this app.")
@@ -92,22 +93,28 @@ if page == "🔮 Live ML Predictor":
             input_data = pd.DataFrame([[avg_size, num_trades, win_rate, ls_ratio, daily_pnl, sentiment]], 
                                       columns=['avg_size_usd', 'num_trades', 'win_rate', 'long_short_ratio', 'daily_pnl', 'value'])
             
-            prediction = model.predict(input_data)[0]
+            # We don't use .predict() to avoid the default 50% threshold bias
             probabilities = model.predict_proba(input_data)[0]
             profit_prob = probabilities[1] * 100
             
             st.divider()
             
-            # Display beautifully formatted results
+            # ========================================================
+            # THE QUANT FIX: CUSTOM DECISION THRESHOLD (75%)
+            # ========================================================
+            CUSTOM_THRESHOLD = 75.0 
+            
             res_col1, res_col2 = st.columns([1, 1])
             
             with res_col1:
-                if prediction == 1:
+                if profit_prob >= CUSTOM_THRESHOLD:
                     st.success("### Prediction: PROFITABLE 📈")
-                    st.markdown("The model detects a favorable behavioral setup. Historically, this signature yields positive returns the following day.")
+                    st.markdown(f"**Confidence: {profit_prob:.1f}%**")
+                    st.markdown("The model detects a favorable behavioral setup with high confidence. Historically, this signature yields positive returns the following day.")
                 else:
-                    st.error("### Prediction: UNPROFITABLE 📉")
-                    st.markdown("The model detects high risk of drawdown. This behavioral signature (often tied to panic or over-leverage) typically precedes a losing day.")
+                    st.error("### Prediction: UNPROFITABLE / HIGH RISK 📉")
+                    st.markdown(f"**Confidence: {profit_prob:.1f}%** (Below {CUSTOM_THRESHOLD}% safe threshold)")
+                    st.markdown("The model detects elevated risk. The probability of profit has dropped below our safety threshold. This behavioral signature typically precedes a losing or highly volatile day.")
             
             with res_col2:
                 # Plotly Gauge Chart for Confidence
@@ -118,14 +125,14 @@ if page == "🔮 Live ML Predictor":
                     title = {'text': "Probability of Profit (%)", 'font': {'size': 20, 'color': 'white'}},
                     gauge = {
                         'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
-                        'bar': {'color': "#00CC96" if profit_prob >= 50 else "#EF553B"},
+                        'bar': {'color': "#00CC96" if profit_prob >= CUSTOM_THRESHOLD else "#EF553B"},
                         'bgcolor': "rgba(0,0,0,0)",
                         'borderwidth': 2,
                         'bordercolor': "gray",
                         'steps': [
-                            {'range': [0, 40], 'color': 'rgba(239, 85, 59, 0.3)'},
-                            {'range': [40, 60], 'color': 'rgba(255, 255, 255, 0.1)'},
-                            {'range': [60, 100], 'color': 'rgba(0, 204, 150, 0.3)'}],
+                            {'range': [0, 50], 'color': 'rgba(239, 85, 59, 0.4)'},     # Red (High Risk)
+                            {'range': [50, 75], 'color': 'rgba(255, 204, 0, 0.3)'},    # Yellow (Warning)
+                            {'range': [75, 100], 'color': 'rgba(0, 204, 150, 0.3)'}],  # Green (Safe)
                     }
                 ))
                 fig.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=20), paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"})
