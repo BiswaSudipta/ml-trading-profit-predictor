@@ -100,7 +100,8 @@ This project:
 ## 📂 Project Structure
 
 ```
-├── app.py                     # Streamlit dashboard
+├── app.py                    # Streamlit dashboard
+├── analysis.ipynb            # End to end analysis
 ├── hyperliquid_rf_model.pkl  # Trained ML model
 ├── insights.png              # Insights visualization
 ├── Profitable.png            # Profit prediction example
